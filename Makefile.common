@@ -56,9 +56,14 @@ SOURCES_C         += $(SOURCE_DIR)/ntsc/sms_ntsc.c
 endif
 
 # Libretro
+# memory_stream is consumed directly by the core's savestate code
+# (smsplus_libretro.c) and must be linked into the core itself even on
+# statically-linked platforms, where the frontend does not export
+# libretro-common symbols.
+SOURCES_C         += $(LIBRETRO_COMMON)/streams/memory_stream.c
+
 ifeq ($(STATIC_LINKING),1)
 else
-SOURCES_C         += $(LIBRETRO_COMMON)/streams/memory_stream.c
 endif
 
 SOURCES_C         += $(SOURCE_DIR)/ports/libretro/smsplus_libretro.c

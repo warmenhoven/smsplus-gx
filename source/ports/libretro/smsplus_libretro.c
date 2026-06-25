@@ -66,9 +66,13 @@ extern sn76489_t psg_sn;
 #define state_write(in_data, size) memstream_write(stream, in_data, size)
 #define state_read(in_data, size)  memstream_read(stream, in_data, size)
 
-static uint32_t system_save_state_mem(void)
+static uint32_t system_save_state_mem(void *data, size_t size)
 {
-   memstream_t *stream = memstream_open(1);
+   uint32_t written;
+   memstream_t *stream = memstream_open((uint8_t*)data, (uint64_t)size, 1);
+
+   if (!stream)
+      return 0;
 
    /* Save VDP context */
    state_write(&vdp, sizeof(vdp_t));
@@ -95,16 +99,20 @@ static uint32_t system_save_state_mem(void)
    state_write(&psg_sn, sizeof(sn76489_t));
    #endif
 
+   written = (uint32_t)memstream_pos(stream);
    memstream_close(stream);
 
-   return 0;
+   return written;
 }
 
-static void system_load_state_mem(void)
+static void system_load_state_mem(const void *data, size_t size)
 {
    unsigned i           = 0;
    uint8_t *buf         = NULL;
-   memstream_t *stream  = memstream_open(0);
+   memstream_t *stream  = memstream_open((uint8_t*)data, (uint64_t)size, 0);
+
+   if (!stream)
+      return;
 
    /* Initialize everything */
    system_reset();
@@ -895,10 +903,10 @@ size_t retro_serialize_size(void)
    {
       /* Something arbitrarily big.*/
       uint8_t *buffer = (uint8_t*)malloc(1000000);
-      memstream_set_buffer(buffer, 1000000);
+      if (!buffer)
+         return 0;
 
-      system_save_state_mem();
-      libretro_serialize_size = memstream_get_last_size();
+      libretro_serialize_size = system_save_state_mem(buffer, 1000000);
       free(buffer);
    }
 
@@ -910,8 +918,7 @@ bool retro_serialize(void *data, size_t size)
    if (size != libretro_serialize_size)
       return 0;
 
-   memstream_set_buffer((uint8_t*)data, size);
-   system_save_state_mem();
+   system_save_state_mem(data, size);
    return 1;
 }
 
@@ -920,8 +927,7 @@ bool retro_unserialize(const void *data, size_t size)
    if (size != libretro_serialize_size)
       return 0;
 
-   memstream_set_buffer((uint8_t*)data, size);
-   system_load_state_mem();
+   system_load_state_mem(data, size);
    return 1;
 }
 
